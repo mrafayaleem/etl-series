@@ -1,0 +1,231 @@
+###################################
+# Airflow - Common Configs
+###################################
+airflow:
+  executor: KubernetesExecutor
+
+  config:
+    AIRFLOW__KUBERNETES__DAGS_IN_IMAGE: "True"
+
+  extraVolumeMounts: # this will get the volume and mount it to that path in the container
+    - name: dags
+      mountPath: /opt/airflow/dags  # location in the container it will put the directory mentioned below.
+
+  extraVolumes: # this will create the volume from the directory
+    - name: dags
+      hostPath:
+        path: "/Users/aleemr/powerhouse/etl-series/dags"  # For you this is something like /<absolute-path>/etl-series/dags
+
+workers:
+  enabled: false
+
+flower:
+  enabled: false
+
+redis:
+  enabled: false
+
+###################################
+# Airflow - DAGs Configs
+###################################
+dags:
+  ## the airflow dags folder
+  ##
+  path: /opt/airflow/dags
+
+  ## whether to disable pickling dags from the scheduler to workers
+  ##
+  ## NOTE:
+  ## - sets AIRFLOW__CORE__DONOT_PICKLE
+  ##
+  doNotPickle: false
+
+  ## install any Python `requirements.txt` at the root of `dags.path` automatically
+  ##
+  ## WARNING:
+  ## - if set to true, and you are using `dags.git.gitSync`, you must also enable
+  ## `dags.initContainer` to ensure the requirements.txt is available at Pod start
+  ##
+  installRequirements: false
+
+  ## configs for the dags PVC
+  ##
+  persistence:
+    ## if a persistent volume is mounted at `dags.path`
+    ##
+    enabled: false
+
+    ## the name of an existing PVC to use
+    ##
+    existingClaim: ""
+
+    ## sub-path under `dags.persistence.existingClaim` to use
+    ##
+    subPath: ""
+
+    ## the name of the StorageClass used by the PVC
+    ##
+    ## NOTE:
+    ## - if set to "", then `PersistentVolumeClaim/spec.storageClassName` is omitted
+    ## - if set to "-", then `PersistentVolumeClaim/spec.storageClassName` is set to ""
+    ##
+    storageClass: ""
+
+    ## the access mode of the PVC
+    ##
+    ## WARNING:
+    ## - must be one of: `ReadOnlyMany` or `ReadWriteMany`
+    ##
+    ## NOTE:
+    ## - different StorageClass support different access modes:
+    ##   https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes
+    ##
+    accessMode: ReadOnlyMany
+
+    ## the size of PVC to request
+    ##
+    size: 1Gi
+
+  ## configs for the DAG git repository & sync container
+  ##
+  git:
+    ## url of the git repository
+    ##
+    ## EXAMPLE: (HTTP)
+    ##   url: "https://github.com/torvalds/linux.git"
+    ##
+    ## EXAMPLE: (SSH)
+    ##   url: "ssh://git@github.com:torvalds/linux.git"
+    ##
+    url: ""
+
+    ## the branch/tag/sha1 which we clone
+    ##
+    ref: master
+
+    ## the name of a pre-created secret containing files for ~/.ssh/
+    ##
+    ## NOTE:
+    ## - this is ONLY RELEVANT for SSH git repos
+    ## - the secret commonly includes files: id_rsa, id_rsa.pub, known_hosts
+    ## - known_hosts is NOT NEEDED if `git.sshKeyscan` is true
+    ##
+    secret: ""
+
+    ## if we should implicitly trust [git.repoHost]:git.repoPort, by auto creating a ~/.ssh/known_hosts
+    ##
+    ## WARNING:
+    ## - setting true will increase your vulnerability ot a repo spoofing attack
+    ##
+    ## NOTE:
+    ## - this is ONLY RELEVANT for SSH git repos
+    ## - this is not needed if known_hosts is provided in `git.secret`
+    ## - git.repoHost and git.repoPort ARE REQUIRED for this to work
+    ##
+    sshKeyscan: false
+
+    ## the name of the private key file in your `git.secret`
+    ##
+    ## NOTE:
+    ## - this is ONLY RELEVANT for PRIVATE SSH git repos
+    ##
+    privateKeyName: id_rsa
+
+    ## the host name of the git repo
+    ##
+    ## NOTE:
+    ## - this is ONLY REQUIRED for SSH git repos
+    ##
+    ## EXAMPLE:
+    ##   repoHost: "github.com"
+    ##
+    repoHost: ""
+
+    ## the port of the git repo
+    ##
+    ## NOTE:
+    ## - this is ONLY REQUIRED for SSH git repos
+    ##
+    repoPort: 22
+
+    ## configs for the git-sync container
+    ##
+    gitSync:
+      ## enable the git-sync sidecar container
+      ##
+      enabled: false
+
+      ## resource requests/limits for the git-sync container
+      ##
+      ## NOTE:
+      ## - when `workers.autoscaling` is true, YOU MUST SPECIFY a resource request
+      ##
+      ## EXAMPLE:
+      ##   resources:
+      ##     requests:
+      ##       cpu: "50m"
+      ##       memory: "64Mi"
+      ##
+      resources: {}
+
+      ## the docker image for the git-sync container
+      image:
+        repository: alpine/git
+        tag: latest
+        ## values: Always or IfNotPresent
+        pullPolicy: Always
+
+      ## the git sync interval in seconds
+      ##
+      refreshTime: 60
+
+  ## configs for the git-clone container
+  ##
+  ## NOTE:
+  ## - use this container if you want to only clone the external git repo
+  ##   at Pod start-time, and not keep it synchronised afterwards
+  ##
+  initContainer:
+    ## enable the git-clone sidecar container
+    ##
+    ## NOTE:
+    ## - this is NOT required for the git-sync sidecar to work
+    ## - this is mostly used for when `dags.installRequirements` is true to ensure that
+    ##   requirements.txt is available at Pod start
+    ##
+    enabled: false
+
+    ## resource requests/limits for the git-clone container
+    ##
+    ## EXAMPLE:
+    ##   resources:
+    ##     requests:
+    ##       cpu: "50m"
+    ##       memory: "64Mi"
+    ##
+    resources: {}
+
+    ## the docker image for the git-clone container
+    image:
+      repository: alpine/git
+      tag: latest
+      ## values: Always or IfNotPresent
+      pullPolicy: Always
+
+    ## path to mount dags-data volume to
+    ##
+    ## WARNING:
+    ## - this path is also used by the git-sync container
+    ##
+    mountPath: "/dags"
+
+    ## sub-path under `dags.initContainer.mountPath` to sync dags to
+    ##
+    ## WARNING:
+    ## - this path is also used by the git-sync container
+    ## - this MUST INCLUDE the leading /
+    ##
+    ## EXAMPLE:
+    ##   syncSubPath: "/subdirWithDags"
+    ##
+    syncSubPath: ""
