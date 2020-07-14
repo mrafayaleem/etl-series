@@ -43,6 +43,7 @@ for task in tasks:
         image_pull_policy="Always",
         name=task,
         task_id=task,
+        is_delete_operator_pod=True,
         get_logs=True,
         dag=dag
     )

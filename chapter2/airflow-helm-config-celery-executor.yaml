@@ -2,7 +2,7 @@
 # Airflow - Common Configs
 ###################################
 airflow:
-  executor: KubernetesExecutor
+  executor: CeleryExecutor
 
   config:
     AIRFLOW__KUBERNETES__DAGS_IN_IMAGE: "True"
@@ -15,15 +15,6 @@ airflow:
     - name: dags
       hostPath:
         path: "/Users/aleemr/powerhouse/etl-series/dags"  # For you this is something like /<absolute-path>/etl-series/dags
-
-workers:
-  enabled: false
-
-flower:
-  enabled: false
-
-redis:
-  enabled: false
 
 ###################################
 # Airflow - DAGs Configs
