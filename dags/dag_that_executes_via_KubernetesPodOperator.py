@@ -18,15 +18,15 @@ default_args = {
 }
 
 dag = DAG(
-    'example_kubernetes_dag',
+    'dag_that_executes_via_KubernetesPodOperator',
     default_args=default_args,
     schedule_interval=timedelta(minutes=30),
     max_active_runs=1,
     concurrency=10
 )
 
-# Generate 5 tasks
-tasks = ["task{}".format('One') for i in range(1, 2)]
+# Generate 2 tasks
+tasks = ["task{}".format(i) for i in range(1, 3)]
 example_dag_complete_node = DummyOperator(task_id="example_dag_complete", dag=dag)
 
 org_dags = []
@@ -43,7 +43,7 @@ for task in tasks:
         image_pull_policy="Always",
         name=task,
         task_id=task,
-        is_delete_operator_pod=True,
+        is_delete_operator_pod=False,
         get_logs=True,
         dag=dag
     )
